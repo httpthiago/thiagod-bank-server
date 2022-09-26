@@ -13,13 +13,20 @@ const User = sequelize.define("user", {
   email: {
     type: DataTypes.STRING,
     allowNull: false,
+    unique: true
   },
   cpf: {
     type: DataTypes.STRING,
     allowNull: false,
+    unique: true
   },
+  money: {
+    type: DataTypes.DECIMAL(10, 2),
+    defaultValue: 0.00
+  }
+  ,
   birthday: {
-    type: DataTypes.DATE,
+    type: DataTypes.DATEONLY,
     allowNull: false,
   },
   password: {
@@ -28,4 +35,25 @@ const User = sequelize.define("user", {
   },
 });
 
-module.exports = User;
+const Transaction = sequelize.define("transactions", {
+  fromUser: {
+    type: DataTypes.INTEGER,
+  },
+  toUser: {
+    type: DataTypes.INTEGER
+  },
+  moneyTransfered: {
+    type: DataTypes.DECIMAL(10, 2),
+  },
+  transferDate: {
+    type: DataTypes.DATEONLY,
+  }
+})
+
+sequelize.sync({alter: true}).then( () => {
+  console.log("sincronizado");
+}).catch(err => {
+  console.log("erro ao sincronizar");
+})
+
+module.exports = {User, Transaction, sequelize};

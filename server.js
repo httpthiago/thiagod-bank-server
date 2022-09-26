@@ -1,9 +1,9 @@
 const express = require("express");
 var app = express();
 const bodyParser = require("body-parser");
-const User = require("./models/entities");
+const { User, sequelize } = require("./models/entities");
 const md5 = require("md5");
-const { Op } = require("sequelize");
+const { Op, QueryTypes } = require("sequelize");
 const PORT = 8080;
 const jwt = require("jsonwebtoken");
 const dotenv = require("dotenv");
@@ -12,8 +12,8 @@ app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
 dotenv.config();
 
-function gerarTokenAcesso(cpf) {
-  return jwt.sign({ cpf }, process.env.TOKEN_SECRET, { expiresIn: 300 });
+function gerarTokenAcesso(id, name, cpf, money) {
+  return jwt.sign({ id, name, cpf, money }, process.env.TOKEN_SECRET, { expiresIn: 300 });
 }
 
 function verficarJwtToken(req, res, next) {
@@ -60,8 +60,9 @@ app.post("/autenticar", (req, res) => {
     },
   })
     .then((retorno) => {
+      console.log(retorno);
       if (retorno) {
-        const token = gerarTokenAcesso(cpfSemMask);
+        const token = gerarTokenAcesso(retorno.id ,retorno.name, cpfSemMask, retorno.money);
         return res.json({
           autenticado: true,
           token: token,
@@ -89,6 +90,24 @@ app.get("/usuarios", verficarJwtToken, (req, res, next) => {
       res.status(500).json({ message: `Falha ao consultar usuários: ${err}` });
     });
 });
+
+app.get("/extrato", verficarJwtToken,(req, res) => {
+  let currentUserId = req.body.currentUserId;
+  sequelize.query(`
+    select usu_envio.name as usuarioEnvio, usu_recebe.name as destinatario, t.moneyTransfered as quantia, t.transferDate as dataTransferencia from transactions t
+      inner join users usu_envio on usu_envio.id = t.fromUser
+      inner join users usu_recebe on usu_recebe.id = t.toUser
+        
+    where (t.fromUser = :usuarioEnvio  or t.toUser = :usuarioEnvio);`, {
+      replacements: {usuarioEnvio: currentUserId, usuarioRecebe: currentUserId},
+      type: QueryTypes.SELECT
+    }).then(resultado => {
+      console.log(resultado);
+      res.json(resultado);
+    }).catch(err => {
+      res.json({message: `ocorreu um erro ao consultar extrato: ${err}`});
+    })
+})
 
 app.listen(PORT, () => {
   console.log(`Servidor levantado com sucesso na porta ${PORT}`);
